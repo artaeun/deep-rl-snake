@@ -1,0 +1,6 @@
+The project was developed on:
+
+- python 3.11.14
+- tensorflow
+- matplotlib
+- stable-baselines3[extra]

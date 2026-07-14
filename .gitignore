@@ -1,0 +1,26 @@
+# python
+__pycache__/
+*.pyc
+
+# data and model artefacts
+data/
+*.pth
+*.pt
+
+# training logs
+tensorboard/
+logs/
+
+# latex build artefacts
+*.aux
+*.log
+*.blg
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# assistant scratch
+CLAUDE.md
+AGENTS.md
+.claude/
