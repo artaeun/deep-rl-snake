@@ -1,4 +1,4 @@
-# Deep Reinforcement Learning for Snake
+![Deep Reinforcement Learning for Snake. 196% over the heuristic baseline, and the blind agent beats the sighted one.](assets/banner.svg)
 
 > **The partially observable agent (5x5 local view) beats the fully observable one: 7.2% win rate, 196% improvement in mean episode reward over the heuristic baseline.**
 
