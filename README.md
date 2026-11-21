@@ -32,43 +32,31 @@ Trains PPO agents to play Snake on an 8x8 board and tests how much of the board 
 </tr>
 </table>
 
-## Run it
-
-With the trained weights in `weights/`, these three commands score the best agent against the baseline. Nothing is retrained.
-
-```bash
-git clone https://github.com/artaeun/deep-rl-snake && cd deep-rl-snake
-pip install tensorflow matplotlib "stable-baselines3[extra]"
-python evaluate.py
-```
-
-Training and evaluation both use seed 0. [Reproduce](#reproduce) gives the settings and the retraining script.
-
 ## Abstract
 
 I trained a PPO agent to play Snake on a 10x10 board (8x8 playable) with Stable-Baselines3 and a custom CNN feature extractor, and compared it against a greedy heuristic baseline over 500 evaluation episodes. Two experiments sit on top of that comparison: how much of the board the agent is allowed to see (the full board, or a 5x5 window centred on its head), and how the reward function is shaped (default rewards, a per-step penalty of -0.001, high-magnitude rewards). The partially observable agent is the best of the four models on every metric, with a mean episode reward of 24.63 against 23.66 for full observability and 8.33 for the baseline, and it is the only agent that ever completes a board (7.2% win rate against 0.0% for everyone else). The step penalty collapsed the policy into immediate self-termination, and the high-magnitude variant produced the best training curve of all four models while placing third at evaluation.
 
 ## Problem
 
-Snake is a finite MDP with deterministic transitions, four discrete actions, and a state that grows its own obstacles. The agent eats fruit, the body lengthens, and cells that were safe two moves ago are now walls of the agent's own making. Three properties make it hard.
+Snake is a finite MDP with deterministic transitions, four discrete actions, and a state that grows its own obstacles. When the agent eats a fruit its body lengthens, so cells that were safe two moves ago are now blocked by its own body. Three properties make it hard.
 
-**Sparse reward.** The only positive signal arrives at the instant a fruit is eaten. Everything in between (dozens of navigation steps) scores zero under the default reward set, so the return has to travel a long way back to reach the decisions that actually mattered.
+**Sparse reward.** The only positive signal arrives at the instant a fruit is eaten. Everything in between (dozens of navigation steps) scores zero under the default reward set, so the return has to travel a long way back to reach the moves that led to the fruit.
 
 **A non-stationary obstacle set.** The board geometry is a function of the agent's own history. A policy that memorised safe regions of the grid would be wrong by construction.
 
-**Self-trapping.** The agent can reach configurations where every action is fatal. Recognising those several moves before they close requires lookahead that a reactive policy does not have. The greedy baseline shows exactly this: it maximises the immediate move toward the fruit, and it walls itself in at around 17 fruits.
+**Self-trapping.** The agent can reach configurations where every action is fatal. Recognising those several moves before they close requires lookahead that a reactive policy does not have. The greedy baseline shows this: it maximises the immediate move toward the fruit, and it walls itself in at around 17 fruits.
 
-Then there is the reward-hacking risk. Any shaping term added to make the agent "more efficient" changes what the optimal policy is, and the arithmetic is easy to get wrong. The step penalty variant is the demonstration. A cost of -0.001 per step, integrated over the 1000-step horizon, is -1.0, which is worth more than two fruit rewards. Under that reward, dying at once is optimal. That is what the agent learned. Over 60% of its evaluation episodes score exactly 0.0, and it finishes 8% below the heuristic baseline.
+Reward hacking is a further risk. Any shaping term added to make the agent "more efficient" changes what the optimal policy is, and the arithmetic is easy to get wrong. The step penalty variant shows it. A cost of -0.001 per step, integrated over the 1000-step horizon, is -1.0, which is worth more than two fruit rewards. Under that reward, dying at once is optimal, and the agent learned to do so. Over 60% of its evaluation episodes score exactly 0.0, and it finishes 8% below the heuristic baseline.
 
 ## Motivation
 
-The questions this project tests are general and they transfer.
+The questions this project tests come up in any RL problem.
 
-Credit assignment over long horizons is the core difficulty of RL, and Snake presents it in a clean form. Episodes run to 1000 steps, the mean length of the winning model's last 100 training episodes was 539, and a single fruit reward has to be spread back across every move that led to it. GAE lambda 0.9 and gamma 0.99 are doing real work here, and the learning curves show it.
+Credit assignment over long horizons is the core difficulty of RL, and Snake presents it in a clean form. Episodes run to 1000 steps, the mean length of the winning model's last 100 training episodes was 539, and a single fruit reward has to be spread back across every move that led to it. GAE lambda 0.9 and gamma 0.99 carry that credit back, and the learning curves show it.
 
 The state space is non-stationary in a way that a static grid world is not. The agent is the source of its own distribution shift. A policy that is optimal at body length 5 can be suicidal at length 40, and no amount of training on early-game states fixes the late game.
 
-The observability question is worth asking because the default assumption in practice is that more information is better. Feeding the whole board seems obviously correct. It lost.
+The observability question is worth asking because the default assumption in practice is that more information is better. Feeding the whole board seems obviously correct, and it lost.
 
 ## Approach
 
@@ -153,28 +141,21 @@ Training reward against evaluation reward:
 
 ## Discussion
 
-Restricting the observation improved the policy. That is the finding I did not expect, and the explanation is plain: a smaller observation space generalises better. The 5x5 window is 25 cells against 100, so the CNN sees a quarter of the input and the policy has far fewer distinct states to fit. Inside a fixed 6M-step budget, that buys a better policy and it converges sooner, which is visible in the first million steps of the observability figure. The window also drops cells that have no bearing on the next action, the same reasoning that removed the wall channel. The cost is real. A 5x5 view cannot see a fruit on the far side of the board and it cannot see a trap forming three cells beyond its horizon. The local agent won anyway: 24.63 against 23.66 in mean reward, lower variance, higher maximum, and the only non-zero win rate in the set.
+Restricting the observation improved the policy. I did not expect this. My explanation is that a smaller observation space generalises better. The 5x5 window is 25 cells against 100, so the CNN sees a quarter of the input and the policy has far fewer distinct states to fit. Inside a fixed 6M-step budget, that gives a better policy that converges sooner, which is visible in the first million steps of the observability figure. The window also drops cells that have no bearing on the next action, the same reasoning that removed the wall channel. The window also loses information. A 5x5 view cannot see a fruit on the far side of the board and it cannot see a trap forming three cells beyond its horizon. The local agent won anyway: 24.63 against 23.66 in mean reward, lower variance, higher maximum, and the only non-zero win rate in the set.
 
-The second finding is about evaluation protocol, and it is the one I would carry into any project. The high penalty model had the best training curve of all four, reaching 30.70 mean training reward against 22.39 for the eventual winner. At evaluation it scored 16.81, a drop of 45.2%, which put it third. Training reward does not predict evaluation reward. The 10.0 win and 1.0 fruit rewards inflate the training average by construction, while the -1.0 collision penalties push the policy toward a caution that costs it fruit once it is scored on the default scale. A held-out evaluation under a common reward function is the only thing that exposes this. Ranking by training curve would have shipped the wrong model.
+The second finding concerns the evaluation protocol, and I would carry it into any project. The high penalty model had the best training curve of all four, reaching 30.70 mean training reward against 22.39 for the eventual winner. At evaluation it scored 16.81, a drop of 45.2%, which put it third. Training reward does not predict evaluation reward. The 10.0 win and 1.0 fruit rewards inflate the training average by construction, while the -1.0 collision penalties push the policy toward a caution that costs it fruit once it is scored on the default scale. Only a held-out evaluation under a common reward function exposes this, and a ranking by training curve would have selected the wrong model.
 
-The step penalty is the third lesson and it is arithmetic. A shaping term has to be checked against its integral over an episode, not judged per step. -0.001 reads as harmless. Multiplied by 1000 steps it is worth two fruits, and it flips the sign of the optimal policy.
+The third lesson is the arithmetic of the step penalty. A shaping term that looks small per step has to be checked against its integral over an episode. Multiplied by 1000 steps, -0.001 is worth two fruits, and it flips the sign of the optimal policy.
 
 ## Limitations
 
 7.2% is a low win rate in absolute terms. The best agent finishes the board in fewer than one episode in thirteen, and the other four agents never finish it at all.
 
-No long-horizon planning exists anywhere in this system. PPO over a two-layer CNN is a reactive policy. It maps the current observation to an action distribution and has no model of the board, no search, and no explicit representation of the region it is about to seal off. A Hamiltonian-cycle prior or a lookahead search would very likely beat it on win rate.
+This system does no long-horizon planning. PPO over a two-layer CNN is a reactive policy. It maps the current observation to an action distribution without a model of the board, a search, or an explicit representation of the region it is about to seal off. A Hamiltonian-cycle prior or a lookahead search would very likely beat it on win rate.
 
 The agent still self-traps. That is what ends most of its episodes and it is the direct cause of the win-rate ceiling. The 5x5 view makes it worse in principle, because a trap forming outside the window is invisible until the agent is already inside it.
 
-Smaller gaps, worth stating: one seed per configuration (seed 0), so the gap between full and partial observability has no across-run variance estimate behind it; a single 10x10 board, so nothing here says how the result scales; and no action masking, so part of every rollout is spent on moves that are invalid by construction.
-
-## Next steps
-
-- Train full and partial observability with three seeds each and estimate the variance of the gap between them.
-- Add action masking for the moves that are invalid by construction.
-- Give the agent a lookahead, or a Hamiltonian-cycle prior, to cut down the self-trapping that caps the win rate.
-- Repeat the observability comparison on larger boards.
+The smaller gaps are these: one seed per configuration (seed 0), so the gap between full and partial observability has no across-run variance estimate behind it; a single 10x10 board, so nothing here says how the result scales; and no action masking, so part of every rollout is spent on moves that are invalid by construction.
 
 ## Reproduce
 
