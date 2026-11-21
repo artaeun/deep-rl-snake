@@ -1,6 +1,14 @@
 ![Deep Reinforcement Learning for Snake. 196% over the heuristic baseline, and the blind agent beats the sighted one.](assets/banner.svg)
 
-> **The partially observable agent (5x5 local view) beats the fully observable one: 7.2% win rate, 196% improvement in mean episode reward over the heuristic baseline.**
+Trains PPO agents to play Snake on an 8x8 board and tests how much of the board they need to see.
+
+| Result | Value |
+| --- | --- |
+| Mean episode reward, best agent (PPO, 5x5 view around the head) | 24.63 |
+| Mean episode reward, greedy heuristic baseline | 8.33 |
+| Improvement over the baseline | +196 % |
+| Boards completed by the best agent | 7.2 % of episodes |
+| Evaluation episodes per agent | 500 |
 
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat&logo=pytorch&logoColor=white)
 ![Stable-Baselines3](https://img.shields.io/badge/Stable--Baselines3-1A5FB4?style=flat&logo=python&logoColor=white)
@@ -23,6 +31,18 @@
 <td align="center">Mean reward 24.63, 49.49 fruits, 7.2% wins</td>
 </tr>
 </table>
+
+## Run it
+
+With the trained weights in `weights/`, these three commands score the best agent against the baseline. Nothing is retrained.
+
+```bash
+git clone https://github.com/artaeun/deep-rl-snake && cd deep-rl-snake
+pip install tensorflow matplotlib "stable-baselines3[extra]"
+python evaluate.py
+```
+
+Training and evaluation both use seed 0. [Reproduce](#reproduce) gives the settings and the retraining script.
 
 ## Abstract
 
@@ -148,6 +168,13 @@ No long-horizon planning exists anywhere in this system. PPO over a two-layer CN
 The agent still self-traps. That is what ends most of its episodes and it is the direct cause of the win-rate ceiling. The 5x5 view makes it worse in principle, because a trap forming outside the window is invisible until the agent is already inside it.
 
 Smaller gaps, worth stating: one seed per configuration (seed 0), so the gap between full and partial observability has no across-run variance estimate behind it; a single 10x10 board, so nothing here says how the result scales; and no action masking, so part of every rollout is spent on moves that are invalid by construction.
+
+## Next steps
+
+- Train full and partial observability with three seeds each and estimate the variance of the gap between them.
+- Add action masking for the moves that are invalid by construction.
+- Give the agent a lookahead, or a Hamiltonian-cycle prior, to cut down the self-trapping that caps the win rate.
+- Repeat the observability comparison on larger boards.
 
 ## Reproduce
 
