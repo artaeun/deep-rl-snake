@@ -159,7 +159,7 @@ The smaller gaps are these: one seed per configuration (seed 0), so the gap betw
 
 ## Reproduce
 
-**The trained weights ship in `weights/`.** `evaluate.py` runs against them directly, so nothing has to be retrained.
+**The weights of the best model (partial observability) ship in `weights/`.** `evaluate.py` runs against them directly, so nothing has to be retrained.
 
 ```bash
 pip install tensorflow matplotlib "stable-baselines3[extra]"

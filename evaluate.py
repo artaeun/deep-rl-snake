@@ -9,7 +9,6 @@ from stable_baselines3 import PPO
 
 from source.gym_environments import gym_SnakeEnvironment
 from source.baseline_agent import BaselineAgent
-from source.export_graphs import export_all_graphs
 
 
 
@@ -449,6 +448,7 @@ def main():
         )
 
         # automatically generate all graphs
+        from source.export_graphs import export_all_graphs
         export_all_graphs(output_dir="figures", weights_dir="weights")
 
     elif OUTPUT_JSON:
